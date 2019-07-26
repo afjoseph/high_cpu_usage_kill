@@ -1,0 +1,45 @@
+#!/bin/bash
+
+readonly INFO_COLOR='\033[0;33m'
+readonly RESET_COLOR='\033[0m' # No Color
+readonly LOG_TAG=$0
+readonly THRESHOLD="90.0"
+readonly SLEEP_INTERVAL_AFTER_NOTIFICATION=5
+
+function log_info() {
+    echo -e "${INFO_COLOR}[+] ${1}${RESET_COLOR}"
+}
+
+function check_high_cpu_usage() {
+    ps_output=$(ps -Ao user,comm,pid,pcpu | awk 'FNR > 1' | sort -r -k 4 | awk 'NR==1')
+
+    highest_cpu_usage_pcpu=$(echo "$ps_output" | awk '{print $4}')
+    highest_cpu_usage_pid=$(echo "$ps_output" | awk '{print $3}')
+    highest_cpu_usage_fullname=$(ps -p "$highest_cpu_usage_pid" -o comm=)
+
+    log_info ">> HCU: $highest_cpu_usage_pcpu from <$highest_cpu_usage_fullname>"
+
+    if (( $(echo "$highest_cpu_usage_pcpu" "$THRESHOLD" | awk '{print($1>$2)}') ));then
+        terminal-notifier -sound default -title 'HIGH CPU USAGE!!' -message "$highest_cpu_usage_pcpu% from <$highest_cpu_usage_fullname>"
+        sleep "$SLEEP_INTERVAL_AFTER_NOTIFICATION"
+    fi
+}
+
+function main() {
+    local iter=0
+    local max=10
+    local sleep_interval=4
+
+    while [ "$iter" -le "$max" ]; do
+        if [ "$iter" = "$max" ]; then
+            clear
+            ((iter=0))
+        fi
+
+        check_high_cpu_usage
+        sleep "$sleep_interval"
+        ((iter++))
+    done
+}
+
+main
