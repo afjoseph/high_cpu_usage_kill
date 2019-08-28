@@ -13,22 +13,30 @@ function log_info() {
 function check_high_cpu_usage() {
     ps_output=$(ps -Ao user,comm,pid,pcpu | awk 'FNR > 1' | sort -r -k 4 | awk 'NR==1')
 
+    if [ "$?" != 0 ] || [ -z "$ps_output" ]; then
+        return
+    fi
+
     highest_cpu_usage_pcpu=$(echo "$ps_output" | awk '{print $4}')
     highest_cpu_usage_pid=$(echo "$ps_output" | awk '{print $3}')
     highest_cpu_usage_fullname=$(ps -p "$highest_cpu_usage_pid" -o comm=)
 
+    if [ -z "$highest_cpu_usage_pcpu" ] || [ -z "$highest_cpu_usage_fullname" ]; then
+        return
+    fi
+
     log_info ">> HCU: $highest_cpu_usage_pcpu from <$highest_cpu_usage_fullname>"
 
-    if (( $(echo "$highest_cpu_usage_pcpu" "$THRESHOLD" | awk '{print($1>$2)}') ));then
-        terminal-notifier -sound default -title 'HIGH CPU USAGE!!' -message "$highest_cpu_usage_pcpu% from <$highest_cpu_usage_fullname>"
+    if (( $(echo "$highest_cpu_usage_pcpu" "$THRESHOLD" | awk '{print($1>$2)}') )); then
+        terminal-notifier -title 'HIGH CPU USAGE!!' -message "$highest_cpu_usage_pcpu% from <$highest_cpu_usage_fullname>"
         sleep "$SLEEP_INTERVAL_AFTER_NOTIFICATION"
     fi
 }
 
 function main() {
     local iter=0
-    local max=10
-    local sleep_interval=4
+    local -r max=10
+    local -r sleep_interval=20
 
     while [ "$iter" -le "$max" ]; do
         if [ "$iter" = "$max" ]; then
